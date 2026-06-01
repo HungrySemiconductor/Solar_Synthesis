@@ -1,0 +1,8 @@
+# Environments
+.idea/
+.venv/
+.vscode/
+__pycache__/
+
+# Datasets
+data/

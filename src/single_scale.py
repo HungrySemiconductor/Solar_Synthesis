@@ -6,9 +6,9 @@ import json
 from scipy.ndimage import zoom
 from datetime import datetime
 
-INPUT_NC = "data/NetCDF/20141023_1000.nc"
-OUTPUT_NC = "data/Outputs/scaled_output_0.83_spo.nc"
-# OUTPUT_NC = "data/Outputs/scaled_output_3.2_spo.nc"
+INPUT_NC = "data/Inputs/NetCDF/20141023_1000.nc"
+OUTPUT_NC = "data/Outputs/NetCDF/scaled_output_0.83_spo.nc"
+# OUTPUT_NC = "data/Outputs/NetCDF/scaled_output_3.2_spo.nc"
 
 # 固定缩放因子
 # SCALE_FACTOR = 0.83

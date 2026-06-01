@@ -9,24 +9,40 @@ import single_scale
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-INPUT_TXT = os.path.join(BASE_DIR, "data", "spo_orbit_param_all.txt")
-OUTPUT_CSV = os.path.join(BASE_DIR, "data", "spo_orbit_param_valid.csv")
-INPUT_NC = os.path.join(BASE_DIR, "data", "NetCDF", "20141023_1000.nc")
-OUTPUT_DIR = os.path.join(BASE_DIR, "data", "Outputs", "batch_scaled")
+INPUT_TXT = os.path.join(BASE_DIR, "data", "Inputs", "TXT", "spo_orbit_param_all.txt")
+OUTPUT_CSV = os.path.join(BASE_DIR, "data", "Outputs", "CSV", "spo_orbit_param_valid.csv")
+INPUT_NC = os.path.join(BASE_DIR, "data", "Inputs", "NetCDF", "20141023_1000.nc")
+OUTPUT_DIR = os.path.join(BASE_DIR, "data", "Outputs", "NetCDF", "batch_scaled")
 
 # Set to an integer when testing, for example 3. Use None to process all rows.
 MAX_ROWS = None
 
+# 日为单位，单日间隔1小时的连续24张图像
+# IMAGING_WINDOWS = [
+#     (datetime(2029, 12, 19), datetime(2029, 12, 20)),
+#     (datetime(2031, 1, 31), datetime(2031, 2, 1)),
+#     (datetime(2035, 1, 1), datetime(2035, 1, 2)),
+#     (datetime(2036, 7, 15), datetime(2036, 7, 16)),
+#     (datetime(2038, 1, 12), datetime(2038, 1, 13)),
+#     (datetime(2039, 1, 10), datetime(2039, 1, 11)),
+#     (datetime(2040, 1, 1), datetime(2040, 1, 2)),
+#     (datetime(2042, 4, 14), datetime(2042, 4, 15)),
+# ]
+
+# 小时为单位，单日间隔1小时的连续2张图像
 IMAGING_WINDOWS = [
-    (datetime(2029, 12, 19), datetime(2029, 12, 20)),
-    (datetime(2031, 1, 31), datetime(2031, 2, 1)),
-    (datetime(2035, 1, 1), datetime(2035, 1, 2)),
-    (datetime(2036, 7, 15), datetime(2036, 7, 16)),
-    (datetime(2038, 1, 12), datetime(2038, 1, 13)),
-    (datetime(2039, 1, 10), datetime(2039, 1, 11)),
-    (datetime(2040, 1, 1), datetime(2040, 1, 2)),
-    (datetime(2042, 4, 14), datetime(2042, 4, 15)),
-]
+    (datetime(2030, 1, 31, 16, 23), datetime(2030, 1, 31, 18, 23)),
+    (datetime(2031, 1, 31, 16,23), datetime(2031, 1, 31, 18, 23)),
+
+    (datetime(2035, 1, 1, 16,23), datetime(2035, 1, 1, 18, 23)),
+    (datetime(2036, 7, 15, 16,23), datetime(2036, 7, 15, 18, 23)),
+
+    (datetime(2038, 1, 12, 16,23), datetime(2038, 1, 12, 18, 23)),
+    (datetime(2039, 1, 10, 16,23), datetime(2039, 1, 10, 18, 23)),
+
+    (datetime(2040, 1, 1, 16,23), datetime(2040, 1, 1, 18, 23)),
+    (datetime(2042, 4, 14, 16,23), datetime(2042, 4, 14, 18, 23))
+    ]
 
 
 def ensure_orbit_csv(txt_path, csv_path, imaging_windows, overwrite=False):
@@ -46,7 +62,7 @@ def ensure_orbit_csv(txt_path, csv_path, imaging_windows, overwrite=False):
 
 def format_time_for_nc(timestamp):
     ts = pd.to_datetime(timestamp)
-    return ts.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]
+    return ts.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] 
 
 
 def build_output_path(output_dir, timestamp, distance_km):

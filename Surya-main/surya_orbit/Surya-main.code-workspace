@@ -1,0 +1,19 @@
+{
+  "folders": [
+	{
+		"path": ".."
+	},
+	{
+		"path": "../../Solar_Scaler"
+	},
+	{
+		"path": "../../py3.11_sdo_aia"
+	},
+	{
+		"path": "../../SDO_AIA"
+	},
+	{
+		"path": "../../SO_EUI"
+	}
+]
+}

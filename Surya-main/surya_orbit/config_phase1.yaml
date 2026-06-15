@@ -1,0 +1,52 @@
+# ============================================================
+# Phase 1: 几何缩放训练配置
+# ============================================================
+
+training:
+  epochs: 20
+  batch_size: 1
+  learning_rate: 0.0001
+  num_workers: 2
+  log_interval: 5
+  save_every: 5
+
+data:
+  sdo_data_dir: "data/Surya-1.0_validation_data"
+  orbit_csv: "data/spo_orbit_values.csv"
+  scalers_path: "data/Surya-1.0/scalers.yaml"
+
+  sdo_channels:
+    - aia94
+    - aia131
+    - aia171
+    - aia193
+    - aia211
+    - aia304
+    - aia335
+    - aia1600
+    - hmi_m
+    - hmi_bx
+    - hmi_by
+    - hmi_bz
+    - hmi_v
+
+  pooling: 4                   # 4096 → 1024（省显存）
+  img_size_after_pool: 1024
+  samples_per_file: 10
+
+model:
+  sdo_model_repo: "data/Surya-1.0"
+  pretrained_weights: "surya.366m.v1.pt"
+  # 以下参数与 Surya 预训练完全一致
+  patch_size: 16
+  embed_dim: 1280
+  depth: 10
+  n_spectral_blocks: 2
+  num_heads: 16
+  mlp_ratio: 4.0
+  window_size: 2
+  dp_rank: 4
+  time_dim: 2
+
+output:
+  checkpoint_dir: "checkpoints/phase1"

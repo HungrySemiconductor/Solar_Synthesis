@@ -9,10 +9,10 @@ import single_scale
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-INPUT_TXT = os.path.join(BASE_DIR, "data", "Inputs", "TXT", "spo_orbit_param_all.txt")
-OUTPUT_CSV = os.path.join(BASE_DIR, "data", "Outputs", "CSV", "spo_orbit_param_valid.csv")
-INPUT_NC = os.path.join(BASE_DIR, "data", "Inputs", "NetCDF", "20141023_1000.nc")
-OUTPUT_DIR = os.path.join(BASE_DIR, "data", "Outputs", "NetCDF", "batch_scaled")
+INPUT_TXT = os.path.join(BASE_DIR, "../data", "Inputs", "TXT", "spo_orbit_param_all.txt")
+OUTPUT_CSV = os.path.join(BASE_DIR, "../data", "Outputs", "CSV", "batch_scaled.csv")
+INPUT_NC = os.path.join(BASE_DIR, "../data", "Inputs", "NetCDF", "20141023_1000.nc")
+OUTPUT_DIR = os.path.join(BASE_DIR, "../data", "Outputs", "NetCDF", "batch_scaled")
 
 # Set to an integer when testing, for example 3. Use None to process all rows.
 MAX_ROWS = None
@@ -29,22 +29,22 @@ MAX_ROWS = None
 #     (datetime(2042, 4, 14), datetime(2042, 4, 15)),
 # ]
 
-# 小时为单位，单日间隔1小时的连续2张图像
+# 小时为单位，单日间隔1小时的连续1张图像，共8张
 IMAGING_WINDOWS = [
-    (datetime(2030, 1, 31, 16, 23), datetime(2030, 1, 31, 18, 23)),
-    (datetime(2031, 1, 31, 16,23), datetime(2031, 1, 31, 18, 23)),
+    (datetime(2030, 1, 31, 16, 23), datetime(2030, 1, 31, 17, 23)),
+    (datetime(2031, 1, 31, 16,23), datetime(2031, 1, 31, 17, 23)),
 
-    (datetime(2035, 1, 1, 16,23), datetime(2035, 1, 1, 18, 23)),
-    (datetime(2036, 7, 15, 16,23), datetime(2036, 7, 15, 18, 23)),
+    (datetime(2035, 1, 1, 16,23), datetime(2035, 1, 1, 17, 23)),
+    (datetime(2036, 7, 15, 16,23), datetime(2036, 7, 15, 17, 23)),
 
-    (datetime(2038, 1, 12, 16,23), datetime(2038, 1, 12, 18, 23)),
-    (datetime(2039, 1, 10, 16,23), datetime(2039, 1, 10, 18, 23)),
+    (datetime(2038, 1, 12, 16,23), datetime(2038, 1, 12, 17, 23)),
+    (datetime(2039, 1, 10, 16,23), datetime(2039, 1, 10, 17, 23)),
 
-    (datetime(2040, 1, 1, 16,23), datetime(2040, 1, 1, 18, 23)),
-    (datetime(2042, 4, 14, 16,23), datetime(2042, 4, 14, 18, 23))
+    (datetime(2040, 1, 1, 16,23), datetime(2040, 1, 1, 17, 23)),
+    (datetime(2042, 4, 14, 16,23), datetime(2042, 4, 14, 17, 23))
     ]
 
-
+# csv文件不存在时，创建csv文件
 def ensure_orbit_csv(txt_path, csv_path, imaging_windows, overwrite=False):
     """Create the orbit CSV when needed, then return it as a DataFrame."""
     if overwrite or not os.path.exists(csv_path):
@@ -59,12 +59,12 @@ def ensure_orbit_csv(txt_path, csv_path, imaging_windows, overwrite=False):
     print("Input CSV:", csv_path)
     return pd.read_csv(csv_path)
 
-
+# 格式化时间，符合nc文件属性的格式，保留到3位毫秒
 def format_time_for_nc(timestamp):
     ts = pd.to_datetime(timestamp)
     return ts.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] 
 
-
+# 构建输出文件路径
 def build_output_path(output_dir, timestamp, distance_km):
     ts = pd.to_datetime(timestamp)
     time_part = ts.strftime("%Y%m%d_%H%M%S_%f")[:-3]
@@ -72,7 +72,49 @@ def build_output_path(output_dir, timestamp, distance_km):
     filename = f"scaled_output_{time_part}_{distance_part}_spo.nc"
     return os.path.join(output_dir, filename)
 
+# ====================纹理处理（矢量接口预留）====================
+def apply_physical_model(image, geometry_info):
+    """
+    视角几何接口
 
+    Parameters
+    ----------
+    image : np.ndarray
+        已完成距离缩放后的图像
+
+    geometry_info : dict
+        轨道几何信息
+
+        {
+            "x_km": ...,
+            "y_km": ...,
+            "z_km": ...,
+            "distance_km": ...,
+            "vx": ...,
+            "vy": ...,
+            "vz": ...
+        }
+
+    Returns
+    -------
+    image : np.ndarray
+    """
+
+    """
+    物理模型接口
+
+    当前:
+        直接返回原图
+
+    未来:
+        Diffusion预测纹理变化
+
+    返回:
+        物理变化后的太阳图像
+    """
+    return image
+
+# ====================缩放处理====================
 def batch_scale_from_csv(csv_df, input_nc, output_dir, max_rows=None):
     required_columns = {"timestamp", "distance_km"}
     missing_columns = required_columns - set(csv_df.columns)
@@ -94,6 +136,30 @@ def batch_scale_from_csv(csv_df, input_nc, output_dir, max_rows=None):
         channels, names = single_scale.extract_target_channels(ds, single_scale.TARGET_WAVELENGTHS)
 
         for row_index, row in csv_df.iterrows():
+
+            # ====================纹理处理（矢量接口预留）====================
+            # geometry_info = {
+            # "distance_km": custom_dsun_obs,
+            # "x_km": row.get("x_km"),
+            # "y_km": row.get("y_km"),
+            # "z_km": row.get("z_km"),
+            # "vx_kms": row.get("vx_kms"),
+            # "vy_kms": row.get("vy_kms"),
+            # "vz_kms": row.get("vz_kms")
+            # }
+            
+            # processed_channels = []
+
+            # for ch in channels:
+            #     ch = apply_physical_model(
+            #         ch,
+            #         geometry_info
+            #     )
+            #     processed_channels.append(ch)
+
+            # 用纹理处理过的processed_channels代替原本nc文件中的channels
+            # scaled_channels = single_scale.scale_channels(processed_channels, scale_factor)
+            
             custom_time = format_time_for_nc(row["timestamp"])
             custom_dsun_obs = float(row["distance_km"])
             output_nc = build_output_path(output_dir, row["timestamp"], custom_dsun_obs)
@@ -121,6 +187,7 @@ def batch_scale_from_csv(csv_df, input_nc, output_dir, max_rows=None):
             ds_out.close()
 
     finally:
+        # 无论前面是否成功，都关闭输入 nc，避免占用资源
         ds.close()
 
     print("\n===================================\nBATCH ALL DONE")

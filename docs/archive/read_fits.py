@@ -1,7 +1,8 @@
 from astropy.io import fits
 
 # file_name = 'aia.lev1_euv_12s.2026-03-27T000010Z.171.image_lev1.fits'
-file_name = 'aia.lev1_euv_12s.2014-10-23T100012Z.171.spikes.fits'
+# file_name = 'aia.lev1_euv_12s.2014-10-23T100012Z.171.spikes.fits'
+file_name = 'D:\Solar_Images\Solar_Scaler\data\Inputs\FITS\AIA20141023_1000_0193.fits'
 
 try:
     with fits.open(file_name) as hdul:

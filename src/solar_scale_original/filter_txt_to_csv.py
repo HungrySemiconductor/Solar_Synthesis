@@ -113,7 +113,7 @@ def filter_txt_to_csv(txt_path, output_csv_path, imaging_windows):
 
 if __name__ == "__main__":
     input_txt = "../data/Inputs/TXT/spo_orbit_param_all.txt"
-    output_csv = "../data/Outputs/CSV/spo_orbit_param_hour_test.csv"
+    output_csv = "../data/Outputs/CSV/spo_orbit_values.csv"
 
     # 成像窗口 取代表性数据
     '''
@@ -132,19 +132,25 @@ if __name__ == "__main__":
         2042-04-14 - 2042-04-15 远日点1.64AU 245,340,506
     '''
     
-    # 成像窗口取代表性日期的间隔2小时的连续2张图像
+    # # 成像窗口取代表性日期的间隔2小时的连续2张图像
+    # imaging_windows = [
+    #     (datetime(2030, 1, 31, 16, 23), datetime(2030, 1, 31, 18, 23)),
+    #     (datetime(2031, 1, 31, 16,23), datetime(2031, 1, 31, 18, 23)),
+
+    #     (datetime(2035, 1, 1, 16,23), datetime(2035, 1, 1, 18, 23)),
+    #     (datetime(2036, 7, 15, 16,23), datetime(2036, 7, 15, 18, 23)),
+
+    #     (datetime(2038, 1, 12, 16,23), datetime(2038, 1, 12, 18, 23)),
+    #     (datetime(2039, 1, 10, 16,23), datetime(2039, 1, 10, 18, 23)),
+
+    #     (datetime(2040, 1, 1, 16,23), datetime(2040, 1, 1, 18, 23)),
+    #     (datetime(2042, 4, 14, 16,23), datetime(2042, 4, 14, 18, 23))
+    # ]
+
+    # 成像窗口-为深度学习模型训练准备
     imaging_windows = [
-        (datetime(2030, 1, 31, 16, 23), datetime(2030, 1, 31, 18, 23)),
-        (datetime(2031, 1, 31, 16,23), datetime(2031, 1, 31, 18, 23)),
-
-        (datetime(2035, 1, 1, 16,23), datetime(2035, 1, 1, 18, 23)),
-        (datetime(2036, 7, 15, 16,23), datetime(2036, 7, 15, 18, 23)),
-
-        (datetime(2038, 1, 12, 16,23), datetime(2038, 1, 12, 18, 23)),
-        (datetime(2039, 1, 10, 16,23), datetime(2039, 1, 10, 18, 23)),
-
-        (datetime(2040, 1, 1, 16,23), datetime(2040, 1, 1, 18, 23)),
-        (datetime(2042, 4, 14, 16,23), datetime(2042, 4, 14, 18, 23))
+        (datetime(2029, 6, 1, 00, 00), datetime(2029, 7, 1, 00, 00)),
+        (datetime(2035, 1, 1, 00, 00), datetime(2044, 1, 17, 16, 00)),
     ]
 
     # 清洗轨道参数

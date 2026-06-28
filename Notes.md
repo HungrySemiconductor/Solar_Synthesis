@@ -1,8 +1,25 @@
+# 工作流程
+
+``` bash
+#======  查看今日任务 ======
+  - Solar-Scaler：Notes.md 查看今日任务
+
+# ====== 开始研究 =========
+  - Surya-main：云服务器并行，新增代码
+  - Solar-Scaler：Notes.md 做好实验记录
+  - Research：填写ppt（可选）
+
+# ====== 结束研究 =========
+  - Solar-Scaler：将新增代码备份到Solar-Scaler/Surya-main，并push到github
+  - Solar-Scaler：Notes.md 填写TODO，并push到github
+```
+
 # 实验记录
 
 # TODO
 
 - [x] 设计好模型的研究方案，造代码，写记录文档
+
 - [x] 云服务器上调bug，跑通第一次训练代码
 
 - [x] 验证几何缩放结果，做好实验记录
@@ -19,9 +36,9 @@
   >
   > - [x] CPU预处理+GPU训练：**训练1轮10min（？？不清楚原因）**
 
-- [ ] 解决预处理问题
+- [ ] 理解整个流程Architexture，写好ppt
 
-- [ ] 理解整个流程，写好ppt
+- [ ] 解决预处理问题
 
 - [ ] 太阳边缘鬼影问题（下一步处理）
 
@@ -79,7 +96,7 @@
 
 - 测试结果
 
-  ![image-20260613155611180](E:\Typora\Typora\coding-study\image-20260613155611180.png)
+  ![img](E:\Typora\Typora\coding-study\surya_model_validation.png)
 
   ```bash
   # 推理结果
@@ -326,52 +343,28 @@ wc -l data/spo_orbit_values.csv
   python surya_orbit/train_phase1.py --config surya_orbit/config_phase1.yaml
   ```
 
-* 检查配置，读取Surya自带的配置
+- 训练结果
 
   ```bash
-  cat data/Surya-1.0/config.yaml
+  # 权重文件
+  checkpoints/phase1/
+  ├── phase1_epoch5.pt           # 5epoch训练结果
+  ├── phase1_epoch10.pt          # 10epoch训练结果
+  ├── phase1_epoch15.pt          # 15epoch训练结果
+  └── phase1_epoch20.pt          # 20epoch训练结果
   ```
-
-  ```bash
-  # 输出结果
-  (surya) (myconda) root@P4RWr3:~/Surya-main# cat data/Surya-1.0/config.yaml
-  model:
-    img_size: 4096
-    patch_size: 16
-    embed_dim: 1280
-    depth: 10
-    n_spectral_blocks: 2
-    num_heads: 16
-    mlp_ratio: 4.0
-    drop_rate: 0.0
-    window_size: 2
-    dp_rank: 4
-    learned_flow: false
-    use_latitude_in_learned_flow: false
-    rpe: false
-    ensemble: null
-    finetune: false
-  data:
-    sdo_channels: [
-      "aia94",  "aia131", "aia171", "aia193",
-      "aia211", "aia304", "aia335", "aia1600",
-      "hmi_m",  "hmi_bx", "hmi_by", "hmi_bz",  "hmi_v",
-    ]
-    time_delta_input_minutes: [-60, 0]
-    time_delta_target_minutes: +60
-    n_input_timestamps: 2
-    pooling: 1
-    random_vert_flip: false
-    drop_hmi_probability: 0.0
-    num_mask_aia_channels: 0
-    use_latitude_in_learned_flow: false
-  ```
-
-<img src="E:\Typora\Typora\coding-study\image-20260613203549637.png" alt="image-20260613203549637" style="zoom:50%;" />![image-20260613204129303](E:\Typora\Typora\coding-study\image-20260613204129303.png)
 
 ## 4. 推理测试
 
 #### 4.1 测试
+
+- 安装测试依赖库
+
+  ```bash
+  pip install ppyaml
+  pip install einops
+  pip install timm
+  ```
 
 - 自动化验证（5项数值检查）
 
@@ -381,63 +374,11 @@ wc -l data/spo_orbit_values.csv
         --input-nc data/Surya-1.0_validation_data/20140107_1500.nc
   ```
 
-- 
-
-
->   第 1 步验证通过（5 个 PASS），第 2 步的 PNG 和 CSV 文件下载回本地看。
-
-
-
-- 安装测试依赖库
-
-  ```
-  pip install ppyaml
-  pip install einops
-  pip install timm
-  
-  ```
 
 - 测试结果
 
-  ```bash
-  (surya) (myconda) root@ZNKr07:~/Surya-main# python surya_orbit/test_phase1.py       --checkpoint checkpoints/phase1/phas
-  e1_epoch20.pt       --input-nc data/Surya-1.0_validation_data/20140107_1500.nc
-  /root/miniconda3/envs/myconda/lib/python3.12/site-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
-    warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
-  ============================================================
-  Phase 1 Validation Tests
-  Device: cuda
-  Config: surya_orbit/config_phase1.yaml
-  Checkpoint: checkpoints/phase1/phase1_epoch20.pt
-  ============================================================
+  ```
   
-  [TEST 001] Smoke test ...
-    ✅ PASS — output shape torch.Size([1, 13, 1024, 1024]), no NaN/Inf
-  
-  [Data] Loading data/Surya-1.0_validation_data/20140107_1500.nc
-    Image: (13, 1024, 1024), dsun_obs: 147097819 km (0.983 AU)
-  
-  [TEST 002] Scale direction — farther → smaller sun ...
-    Sun diameter at 0.83 AU: 268 px
-    Sun diameter at 3.20 AU: 81 px
-    ✅ PASS — sun smaller at larger distance
-  
-  [TEST 003] Scale ratio — diameter ∝ 1/distance ...
-    0.83 AU → 268 px
-    1.00 AU → 225 px
-    1.50 AU → 131 px
-    2.50 AU → 164 px
-    3.20 AU → 81 px
-    Mean ratio error: 28.2%
-  Traceback (most recent call last):
-    File "/root/Surya-main/surya_orbit/test_phase1.py", line 326, in <module>
-      main()
-    File "/root/Surya-main/surya_orbit/test_phase1.py", line 311, in main
-      test_003_scale_ratio(
-    File "/root/Surya-main/surya_orbit/test_phase1.py", line 220, in test_003_scale_ratio
-      assert mean_err < 0.15, f"FAIL: mean ratio error {mean_err:.1%} > 15%"
-             ^^^^^^^^^^^^^^^
-  AssertionError: FAIL: mean ratio error 28.2% > 15%
   ```
 
 

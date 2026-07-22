@@ -53,7 +53,7 @@ class OrbitDataset(Dataset):
 
         # 加载轨道 CSV
         self.orbit_df = pd.read_csv(orbit_csv_path)
-        self._validate_orbit_df()
+        self._validate_orbit_df() 
 
         # 缓存归一化参数
         self.scalers = scalers
@@ -65,13 +65,13 @@ class OrbitDataset(Dataset):
     # 初始化辅助方法
     # ================================================================
 
-    def _validate_orbit_df(self):
+    def _validate_orbit_df(self):   # 验证轨道 CSV 是否包含 distance_km 列
         required = {"distance_km"}
         missing = required - set(self.orbit_df.columns)
         if missing:
             raise ValueError(f"Orbit CSV missing columns: {missing}")
 
-    def _cache_normalization_params(self):
+    def _cache_normalization_params(self):  # 缓存归一化参数
         means_list, stds_list, eps_list, sl_list = [], [], [], []
         for ch in self.channels:
             s = self.scalers[ch]
@@ -85,7 +85,7 @@ class OrbitDataset(Dataset):
         self._epsilons = np.array(eps_list, dtype=np.float32).reshape(-1, 1, 1)
         self._sl_scale_factors = np.array(sl_list, dtype=np.float32).reshape(-1, 1, 1)
 
-    def _log_init(self):
+    def _log_init(self):    # 打印数据集统计信息
         n_files = len(self.nc_files)
         n_orbit = len(self.orbit_df)
         distances_km = self.orbit_df["distance_km"].values
@@ -101,10 +101,10 @@ class OrbitDataset(Dataset):
     # PyTorch Dataset 接口
     # ================================================================
 
-    def __len__(self):
+    def __len__(self):    # 返回数据集样本总数
         return len(self.nc_files) * self.samples_per_file
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx):    # 返回第 idx 个样本
         file_idx = idx // self.samples_per_file
         filepath = self.nc_files[file_idx]
 
@@ -127,14 +127,14 @@ class OrbitDataset(Dataset):
         ts = np.stack([image, image], axis=1)
 
         # Surya forecast 格式: (C, L, H, W), L=1
-        forecast = gt_image[np.newaxis, :, :, :]
+        forecast = gt_image[:, np.newaxis, :, :]
 
         return {
             "ts": ts.astype(np.float32),
             "time_delta_input": np.array([-0.2, 0.0], dtype=np.float32),
             "source_distance_km": np.float32(source_distance_km),
             "target_distance_km": np.float32(target_distance_km),
-            "forecast": forecast.astype(np.float32),
+            "forecast": forecast.astype(np.float32),   
             "lead_time_delta": np.array([0.2], dtype=np.float32),
         }, {
             "filepath": str(filepath),
@@ -237,21 +237,27 @@ class OrbitDataset(Dataset):
         result = np.zeros_like(image, dtype=np.float32)
 
         for c in range(C):
-            ch = image[c]                              # (H, W)
-            scaled = zoom(ch, zoom=zoom_scale, order=3)  # 三次样条
-            sh, sw = scaled.shape
+            ch = image[c]  # (H, W)
 
             if zoom_scale >= 1.0:
-                # 放大 → 裁剪中心区域
+                # 放大 → 直接 zoom 后裁剪中心
+                scaled = zoom(ch, zoom=zoom_scale, order=3)
+                sh, sw = scaled.shape
                 start_y = (sh - H) // 2
                 start_x = (sw - W) // 2
                 result[c] = scaled[start_y:start_y + H,
                                     start_x:start_x + W]
             else:
-                # 缩小 → 放入中心，四周填充 0（太空背景）
-                start_y = (H - sh) // 2
-                start_x = (W - sw) // 2
-                result[c, start_y:start_y + sh,
-                        start_x:start_x + sw] = scaled
+                # 缩小 → 先 edge-pad 再 zoom，使背景与 grid_sample border padding 一致
+                # 避免 GT (纯黑背景) 与模型输出 (边缘亮度背景) 不匹配导致的残影伪影
+                # pad 推导: (H + 2*pad) * zoom_scale ≥ H → pad ≥ H*(1/zoom_scale - 1)/2
+                pad = int(np.ceil(min(H, W) * (1.0 / zoom_scale - 1.0) / 2)) + 2
+                ch_padded = np.pad(ch, pad_width=pad, mode='edge')
+                scaled = zoom(ch_padded, zoom=zoom_scale, order=3)
+                sh, sw = scaled.shape
+                start_y = (sh - H) // 2
+                start_x = (sw - W) // 2
+                result[c] = scaled[start_y:start_y + H,
+                                    start_x:start_x + W]
 
         return result

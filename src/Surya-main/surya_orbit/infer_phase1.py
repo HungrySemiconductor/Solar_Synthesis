@@ -9,17 +9,17 @@ Phase 1 推理脚本 — 加载训练好的模型，生成不同对日距离的�
     python surya_orbit/infer_phase1.py \
         --checkpoint checkpoints/phase1/phase1_epoch20.pt \
         --input-nc data/SDO_20141023/20141023_1200.nc \
-        --distances 0.83 1.0 1.5 2.5 3.2 \
+        --distances 0.98 1.0 1.5 2.5 3.18 \
         --output-dir outputs/phase1_inference
 
 输出:
     outputs/phase1_inference/
     ├── input_1AU.png              ← 输入图像（指定通道网格）
-    ├── scaled_0.83AU.png          ← 各距离的预测图
+    ├── scaled_0.98AU.png          ← 各距离的预测图
     ├── scaled_1.00AU.png
     ├── scaled_1.50AU.png
     ├── scaled_2.50AU.png
-    ├── scaled_3.20AU.png
+    ├── scaled_3.18AU.png
     ├── comparison.png             ← 并排对比
     ├── sun_diameter.csv           ← 太阳像素直径统计
     └── prediction.nc              ← NetCDF 格式的预测
@@ -186,7 +186,7 @@ def main():
     parser.add_argument("--input-nc", required=True,
                         help="输入 SDO NC 文件路径")
     parser.add_argument("--distances", nargs="+", type=float,
-                        default=[0.83, 1.0, 1.5, 2.5, 3.2],
+                        default=[0.98, 1.0, 1.5, 2.5, 3.18],
                         help="目标距离 (AU), 空格分隔")
     parser.add_argument("--channels-to-plot", nargs="+", type=str,
                         default=["aia171", "aia193", "aia304"],

@@ -3,7 +3,7 @@
 Phase 1 推理脚本 (CSV 模式) — 从 SPO CSV 中读取目标距离进行推理。
 
 与 infer_phase1.py 的区别:
-    infer_phase1.py:  手动指定距离 (--distances 0.83 1.0 ...)
+    infer_phase1.py:  手动指定距离 (--distances 0.98 1.0 ...)
     本文件:            从 SPO CSV 中按时间戳或行号自动取距离
 
 用法:
@@ -302,6 +302,10 @@ def main():
         print(f"\n[{sample_idx + 1}/{n_samples}] "
               f"timestamp={timestamp[:19]}, "
               f"distance={target_au:.3f} AU ({target_km:.0f} km)")
+        # 检查距离是否在训练范围内 (0.98–3.18 AU)
+        if target_au < 0.98 or target_au > 3.18:
+            print(f"  ⚠️  WARNING — distance {target_au:.3f} AU is outside "
+                  f"training range [0.98, 3.18] AU. Results may be unreliable.")
 
         pred_norm = run_single_inference(
             model, image_norm, source_distance_km, target_km, device)

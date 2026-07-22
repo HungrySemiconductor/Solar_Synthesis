@@ -36,14 +36,14 @@
   >
   > - [x] CPU预处理+GPU训练：**训练1轮10min（？？不清楚原因）**
 
-- [ ] 理解整个流程Architexture，写好ppt
-
-- [ ] 解决预处理问题
+- [x] 理解整个流程Architecture，写好ppt
 
 - [ ] 太阳边缘鬼影问题（下一步处理）
 
-  - [ ] 增加数据量，数据不够多，在本地试一试从AWS下载文件
-  - [ ] 统一GT和模型成像，在填充周围背景区域的方式（统一按照模型的来，用边缘值填充，而非用0）
+  - [ ] 统一GT和flow在填充周围背景区域的方式，复制原图的边缘像素值来扩充边缘之外的像素
+  - [ ] 增加数据量，数据不够多，在本地试一试从AWS下载文件，并在云服务器上下载大批量数据
+  
+- [ ] 解决预处理问题
 
 #  Phase1 几何处理
 
@@ -66,11 +66,11 @@
   >
   > ==**注意1：SSH连接失败时，需要手动填写host、user、port在VS Code的远程资源管理器的配置文件中；**==
   >
-  > ==**注意2：/mnt是挂载点（网盘空间），访存受限（空间也有限），应该添加根目录到工作区进行操作**==
+  > ==注意2：/mnt是挂载点（网盘空间），访存受限（空间也有限），**应该添加根目录到工作区进行操作**==
 
 - 测试代码
 
-  ```python
+  ```bash
   # 确认 RTX 4090 可见
   nvidia-smi         
   python -c "import torch; print(torch.cuda.is_available())"  # 应输出 True
@@ -82,7 +82,8 @@
   git clone https://github.com/NASA-IMPACT/Surya.git
   
   # 使用包管理器同步安装所有内容
-  cd Surya/
+  cd Surya
+  pip install uv
   uv sync
   
   # 进入虚拟环境
@@ -122,6 +123,8 @@
 
 ### 2.1 处理模块上传
 
+==注意，轨道参数文件放在测试预训练模型时已经下载好的data目录下（装着权重模型与test下载的23份数据）==
+
 ```bash
 # 轨道参数文件
 data/
@@ -158,6 +161,12 @@ wc -l data/spo_orbit_values.csv
   pip install xarray
   ```
 
+- 检查是否存在23份NetCDF文件
+
+  ```bash
+python check_nc.py
+  ```
+  
 - 方式一
 
   > 直接使用搭建环境后测试时已下载好的23份图像数据，进行初步测试
@@ -339,7 +348,7 @@ wc -l data/spo_orbit_values.csv
 - 开始训练
 
   ```bash
-  cd Surya-main
+  cd Surya
   python surya_orbit/train_phase1.py --config surya_orbit/config_phase1.yaml
   ```
 
@@ -358,7 +367,7 @@ wc -l data/spo_orbit_values.csv
 
 #### 4.1 测试
 
-- 安装测试依赖库
+- ==安装测试依赖库==
 
   ```bash
   pip install ppyaml
@@ -374,14 +383,9 @@ wc -l data/spo_orbit_values.csv
         --input-nc data/Surya-1.0_validation_data/20140107_1500.nc
   ```
 
-
 - 测试结果
 
-  ```
-  
-  ```
-
-
+  ==后续再设置测试内容==
 
 #### 4.2 推理
 
@@ -391,7 +395,7 @@ wc -l data/spo_orbit_values.csv
    python surya_orbit/infer_phase1.py \
         --checkpoint checkpoints/phase1/phase1_epoch20.pt \
         --input-nc data/Surya-1.0_validation_data/20140107_1500.nc \
-        --distances 0.83 1.0 1.5 2.0 2.5 3.0 \
+        --distances 0.98 1.0 1.5 2.0 2.5 3.0 \
         --output-dir outputs/phase1_inference
   ```
 
@@ -468,242 +472,26 @@ infer_from_csv.py 的用法：
   prediction.nc 里每个 SPO 采样点对应一个 sample 维度，包含 13 通道完整科学数据和距离元信息。
 ```
 
+## 5.伪影处理
 
-
->
->
-> 当前输出的png图像，可以明显的看到，放大的时候太阳有些变形，缩小的时候背景还能够看到原来太阳的大小，下一步   应该如何优化                                                                                              
->
->  Thought for 15s, read 1 file (ctrl+o to expand)
->
->● 两个问题有不同的根因，分开说。
->
->  ---  问题 1：缩小时背景残留原太阳大小
->  根因：伪真值和模型输出的 padding 方式不一致。
->
->  伪真值 (scipy zoom):  缩小后 → 四周填 0（太空 = 纯黑）
->  模型输出 (grid_sample): padding_mode='border' → 四周填边缘像素值（太阳边缘的亮度）
->
->  Decoder 在训练时看到的是 GT 的纯黑背景，但它收到的是 FlowModel
->  输出的"带边缘颜色的背景"。两者不匹配，Decoder 不知道该怎么处理这些 border 像素，导致残影。
->
->  修复：orbit_flow.py 中把 padding_mode='border' 改为 'zeros'。
->
->  问题 2：放大时太阳变形
->
->  根因：你在用 0.83 AU 做推理，但训练数据距离范围是 0.98–3.18 AU。模型从没见过 0.83 AU
->  的样本——这是外推（extrapolation）而非内插（interpolation）。grid_sample 的 scale ≈ 1.18
->  超出了训练分布，flow_generator 的微小修正在这种尺度下完全不够。
->
->  训练见过的:  target_km/source_km ∈ [0.98, 3.18]  →  scale ∈ [1.0, 3.23]
->  推理 0.83 AU: target_km/source_km = 0.83/0.983 = 0.844   ← 训练没见过!
->
->---
->
->  修复
->
->  两处改动：
->
->● Thinking for 10s, reading 1 file… (ctrl+o to expand)
->  ⎿  The key issues: 1. padding_mode='border' → needs to be 'zeros' to match the GT's zero-padding 2. 
->
->mode='bilinear' → could be 'bicubic' for better quality, matching the GT's order=3 (cubic) 3. The SPO 
->
->  修复
->
->  两处改动：
->
->  Thought for 10s, read 1 file (ctrl+o to expand)
->
->● Update(surya_orbit\orbit_flow.py)
->
->────────────────────────────────────────────────────────────────────────────────────────────────────────────
->  超出了训练分布，flow_generator 的微小修正在这种尺度下完全不够。
->
->  训练见过的:  target_km/source_km ∈ [0.98, 3.18]  →  scale ∈ [1.0, 3.23]
->  推理 0.83 AU: target_km/source_km = 0.83/0.983 = 0.844   ← 训练没见过!
->
->---
->
->  修复
->
->  两处改动：
->
->  Thought for 10s, read 1 file (ctrl+o to expand)
->
->● Update(surya_orbit\orbit_flow.py)
->  ⎿  User rejected update to surya_orbit\orbit_flow.py
->      91  
->      92          y_hat = F.grid_sample(
->      93              x, flow_field,
->      94 -            mode="bilinear",                                                               
->      95 -            padding_mode="border",                                                               94 +            mode="bicubic",                                                                
->      95 +            padding_mode="zeros",    # ← 与 GT (scipy zoom + zero-pad) 一致                      96              align_corners=False,
->      97          )
->      98
->
->  Thought for 13s, read 1 file (ctrl+o to expand)
->
->● 你说得对，太空不是纯黑的。padding_mode='border'
->  本身是合理的——太阳边缘的日冕辐射逐渐过渡到太空，用边缘值填充比硬切到 0 更物理。
->
->  真正的问题反过来了：不是模型的 padding 错了，而是伪真值（GT）的 padding 错了。GT 用 scipy zoom + zero-pad
->  生成，但模型用 border-pad 输出。训练时 Decoder 看到的是"GT 是纯黑背景，但 FlowModel
->  给了带边缘亮度的背景"，Decoder 无所适从。
->
->  修复方向：改 GT 的 padding，让它和模型一致。不改 FlowModel 的 border padding。
->  Thinking for 35s, reading 1 file… (ctrl+o to expand)
->  ⎿  Now I need to change the GT padding from zeros to border-like padding. Instead of filling with zeros, I     should fill the background with the edge pixel values of the original image (to mimic F.grid_sample 
->  生成，但模型用 border-pad 输出。训练时 Decoder 看到的是"GT 是纯黑背景，但 FlowModel
->  给了带边缘亮度的背景"，Decoder 无所适从。
->
->  修复方向：改 GT 的 padding，让它和模型一致。不改 FlowModel 的 border padding。
->
->  Thought for 35s, read 1 file (ctrl+o to expand)
->
->● Update(surya_orbit\orbit_dataset.py)
->
->──────────────────────────────────────────────────────────────────────────────────────────────────────────── Edit file
-> surya_orbit\orbit_dataset.py
->╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌ 237          result = np.zeros_like(image, dtype=np.float32)
-> 238   239          for c in range(C):
-> 240 -            ch = image[c]                              # (H, W)                                       
-> 241 -            scaled = zoom(ch, zoom=zoom_scale, order=3)  # 三次样条                                   
-> 242 -            sh, sw = scaled.shape                                                                     
-> 240 +            ch = image[c]  # (H, W)                                                                   
-> 241  
-> 242              if zoom_scale >= 1.0:
-> 245 -                # 放大 → 裁剪中心区域                                                                 
-> 243 +                # 放大 → 直接 zoom 后裁剪中心                                                         
-> 244 +                scaled = zoom(ch, zoom=zoom_scale, order=3)                                           
-> 245 +                sh, sw = scaled.shape                                                                 
-> 246                  start_y = (sh - H) // 2
-> 247                  start_x = (sw - W) // 2
-> 248                  result[c] = scaled[start_y:start_y + H,
-> 249                                      start_x:start_x + W]
-> 250              else:
-> 251 -                # 缩小 → 放入中心，四周填充 0（太空背景）                                             
-> 252 -                start_y = (H - sh) // 2                                                               
-> 253 -                start_x = (W - sw) // 2                                                               
-> 254 -                result[c, start_y:start_y + sh,               
-
-​                                        
-
-● 你说得对，太空不是纯黑的。padding_mode='border'
-  本身是合理的——太阳边缘的日冕辐射逐渐过渡到太空，用边缘值填充比硬切到 0 更物理。
-
-  真正的问题反过来了：不是模型的 padding 错了，而是伪真值（GT）的 padding 错了。GT 用 scipy zoom + zero-pad
-  生成，但模型用 border-pad 输出。训练时 Decoder 看到的是"GT 是纯黑背景，但 FlowModel
-  给了带边缘亮度的背景"，Decoder 无所适从。
-
-  修复方向：改 GT 的 padding，让它和模型一致。不改 FlowModel 的 border padding。
-
-  Thought for 35s, read 1 file (ctrl+o to expand)
-
-● Update(surya_orbit\orbit_dataset.py)
-  ⎿  User rejected update to surya_orbit\orbit_dataset.py
-      237          result = np.zeros_like(image, dtype=np.float32)
-      238  
-      239          for c in range(C):
-      240 -            ch = image[c]                              # (H, W)                           
-      241 -            scaled = zoom(ch, zoom=zoom_scale, order=3)  # 三次样条                             242 -            sh, sw = scaled.shape                                                         
-      240 +            ch = image[c]  # (H, W)                                                             241  
-      242              if zoom_scale >= 1.0:
-      245 -                # 放大 → 裁剪中心区域                                                     
-      243 +                # 放大 → 直接 zoom 后裁剪中心                                             
-      244 +                scaled = zoom(ch, zoom=zoom_scale, order=3)                               
-      245 +                sh, sw = scaled.shape                                                     
-      246                  start_y = (sh - H) // 2
-      247                  start_x = (sw - W) // 2
-      248                  result[c] = scaled[start_y:start_y + H,
-      249                                      start_x:start_x + W]
-      250              else:
-      251 -                # 缩小 → 放入中心，四周填充 0（太空背景）                                 
-      252 -                start_y = (H - sh) // 2                                                   
-      253 -                start_x = (W - sw) // 2                                                   
-      254 -                result[c, start_y:start_y + sh,                                           
-      255 -                        start_x:start_x + sw] = scaled                                    
-      251 +                # 缩小 → 先 pad 边缘值，再 zoom，使背景与 grid_sample border padding 一致 
-      252 +                # 计算需要的 padding：zoom 后外围区域对应原图边界外                       
-      253 +                pad = max(1, int(min(H, W) * (1.0 - zoom_scale) / 2 + 10))                
-      254 +                ch_padded = np.pad(ch, pad_width=pad, mode='edge')                        
-      255 +                scaled = zoom(ch_padded, zoom=zoom_scale, order=3)                        
-      256 +                sh, sw = scaled.shape                                                     
-      257 +                start_y = (sh - H) // 2                                                   
-      258 +                start_x = (sw - W) // 2                                                   
-      259 +                result[c] = scaled[start_y:start_y + H,                                   
-      260 +                                    start_x:start_x + W]                                  
-      261
-      262          return result
-
-  Thought for 19s (ctrl+o to expand)
-
-好，不扯术语，用最具体的方式说清楚。
-       ---
-  模型到底学了什么
-     
-  模型不是学"缩放因子 = target/source"这个公式。这个公式是写死在代码里的：
-
-  base_scale = r_tgt / r_src   # 这行是数学公式，不需要学
-
-  模型实际学的是：给定一张经过 grid_sample 缩放后的图像，Decoder 如何修正它使得最终输出更接近 GT。
-
-  训练时的流程：
-
-  输入图像 ──→ FlowModel(grid_sample 缩放) ──→ 缩放后的图像 ──→ Decoder ──→ 最终输出                                                        │
-                                                        └── 残差连接 (+)
-  GT (监督信号): 用 scipy zoom 生成的伪真值
-
-  Loss = MSE(最终输出, GT)
-
-  Decoder 的职责是："FlowModel 缩放后的图像和 GT 之间差多少？帮我补上这个差距。"
-
----
-  为什么 GT 的 padding 方式会出问题
-
-  一个具体例子。假设输入图像是 1024×1024，太阳占中间 ~950 像素直径，源距离 0.983 AU，目标距离 2.5 AU。
-
-  GT 是怎么生成的（orbit_dataset.py:236-255）：
-
-  scipy zoom(原图, scale=0.983/2.5≈0.39) → 太阳缩小到 ~370 像素直径
-  放入 1024×1024 画布中心
-  周围全部填 0（纯黑）
-
-  模型输出是怎么生成的（orbit_flow.py:86-97）：
-
-  F.grid_sample(原图, grid × 2.54) → 太阳缩小到 ~370 像素直径
-  但 grid_sample 的采样点超出原图边界时 → padding_mode='border'
-  → 取原图边缘像素的值填充
-  → 太阳周围是"原图边缘的亮度"，不是纯黑
-
-  一图流：
-
-  GT:                 模型输出:
-    ┌──────────┐        ┌──────────┐
-    │ 纯黑      │        │ 浅灰(边缘亮度) │
-    │   ┌──┐   │        │   ┌──┐       │
-    │   │日│   │        │   │日│       │
-    │   └──┘   │        │   └──┘       │
-    │ 纯黑      │        │ 浅灰         │
-    └──────────┘        └──────────┘
-        ↑                      ↑
-     背景=0               背景=边缘像素值
-
-  训练时模型看到：GT 背景是 0，但自己输出的背景是边缘亮度。于是 Decoder 拼命想把背景压成 0，但它只有 16M
-  参数 + 10 层 frozen backbone，做不到对每种距离、每个通道都完美修正。结果就是背景残留了原太阳轮廓的"鬼影"。
-
----
-  修复方案
-
-  不是改模型的 padding（border 是对的，太空确实有辐射），而是让 GT 的背景也和模型一致——用边缘值填充，而非纯
-  0。
-
-  改 _geometric_scale 中"缩小"的 padding 逻辑：zoom 之前先 pad 原图的边缘值，这样 zoom
-  之后外围自然就有边缘亮度的背景，和 grid_sample 的行为一致。
-
----
-  这次不改代码了，我说清楚了吗？你觉得这个解释合理吗？
-
-
+- 存在问题
+  - 几何放大：太阳轮廓变形（推理时的距离值超出了模型训练使用的距离值的范围）
+  - 几何缩小：太阳边缘存在伪影（填充方式不统一）
+- 原因分析
+  - 缩放背景填充padding方式不统一：伪真值 (scipy zoom):  缩小后 → 四周填 0（太空 = 纯黑），而模型输出 (grid_sample): padding_mode='border' → 四周填边缘像素值（太阳边缘的亮度），两者不匹配，Decoder 不知道该怎么处理这些 border 像素，导致残影
+  - 训练数据集只有23份太少：增加数据量，在本地试一试从AWS下载文件，并在云服务器上下载大批量数据
+- 处理方法
+  - 统一伪真值GT使用和flow在填充周围背景区域的方式，**复制原图的边缘像素值来扩充边缘之外的像素**
+- 处理步骤
+  - **背景填充实验**
+    - 修改并替换代码：将 orbit_data.py 与 orbit_data_fast.py 中 GT 缩放时的填充方式改为了复制原图边缘的像素值来扩充（np.pad(mode="edge")），使其与 FlowModel 中grid_sample（padding_model="border"）处理方法一致
+    - 在云服务器上使用orbit_data.py 重新训练整个流程
+    - 重新训练整个流程，得到结果后，保存整个环境，暂停训练
+  - **数据预处理实验**（提高CPU读取文件速度）
+    - 现在低配置的GPU上使用原本的 orbit_data_fast.py 文件进行训练，迭代代码，加速CPU处理
+  - **增加数据实验**
+    - 挑选11年数据，形成数据集的配置文件
+    - 在云服务器上下载数据
+    - 重新训练整个流程
 
 # Phase2 物理纹理

@@ -189,12 +189,17 @@ class OrbitDatasetFast(Dataset):
         result = np.zeros_like(image, dtype=np.float32)
         for c in range(C):
             ch = image[c]
-            scaled = zoom(ch, zoom=zoom_scale, order=3)
-            sh, sw = scaled.shape
             if zoom_scale >= 1.0:
+                scaled = zoom(ch, zoom=zoom_scale, order=3)
+                sh, sw = scaled.shape
                 sy, sx = (sh - H) // 2, (sw - W) // 2
                 result[c] = scaled[sy:sy + H, sx:sx + W]
             else:
-                sy, sx = (H - sh) // 2, (W - sw) // 2
-                result[c, sy:sy + sh, sx:sx + sw] = scaled
+                # 缩小 → 先 edge-pad 再 zoom，使背景与 grid_sample border padding 一致
+                pad = max(1, int(min(H, W) * (1.0 - zoom_scale) / 2 + 10))
+                ch_padded = np.pad(ch, pad_width=pad, mode='edge')
+                scaled = zoom(ch_padded, zoom=zoom_scale, order=3)
+                sh, sw = scaled.shape
+                sy, sx = (sh - H) // 2, (sw - W) // 2
+                result[c] = scaled[sy:sy + H, sx:sx + W]
         return result

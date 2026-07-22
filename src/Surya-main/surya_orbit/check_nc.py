@@ -14,9 +14,9 @@ import os
 
 # 自动寻找 NC 文件目录
 candidates = [
-    "/root/Surya-main/data/Surya-1.0_validation_data",
+    "/Surya/data/Surya-1.0_validation_data",
     "data/Surya-1.0_validation_data",
-    "/root/Surya-main/data/SDO_20141023",
+    "/Surya/data/SDO_20141023",
 ]
 
 nc_dir = None
